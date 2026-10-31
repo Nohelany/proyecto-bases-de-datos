@@ -1,16 +1,23 @@
 USE EmpresaDB;
 GO
 
-CREATE TRIGGER trg_AuditarVenta
+CREATE OR ALTER TRIGGER trg_AuditarVenta
 ON Ventas
 AFTER INSERT
 AS
 BEGIN
-    DECLARE @VentaID INT;
-
-    SELECT @VentaID = VentaID
+    INSERT INTO AuditoriaVentas (VentaID, Mensaje)
+    SELECT VentaID, 'Venta registrada automáticamente'
     FROM inserted;
 
-    EXEC sp_RegistrarAuditoria @VentaID;
+    UPDATE Inventario
+    SET Existencias = Existencias - VentasInsertadas.CantidadTotal
+    FROM Inventario
+    INNER JOIN (
+        SELECT Producto, SUM(Cantidad) AS CantidadTotal
+        FROM inserted
+        GROUP BY Producto
+    ) AS VentasInsertadas
+        ON Inventario.Producto = VentasInsertadas.Producto;
 END;
 GO
